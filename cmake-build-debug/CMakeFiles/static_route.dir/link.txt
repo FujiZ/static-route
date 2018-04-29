@@ -1,0 +1,1 @@
+/usr/bin/cc -g   CMakeFiles/static_route.dir/main.c.o CMakeFiles/static_route.dir/router.c.o  -o static_route 

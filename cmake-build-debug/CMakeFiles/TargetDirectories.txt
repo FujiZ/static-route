@@ -1,0 +1,3 @@
+/home/fuji/Projects/static-route/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/fuji/Projects/static-route/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/fuji/Projects/static-route/cmake-build-debug/CMakeFiles/router.dir

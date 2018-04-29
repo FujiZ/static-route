@@ -1,0 +1,4 @@
+/home/fuji/.local/share/umake/ide/clion/bin/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /home/fuji/Projects/static-route
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/fuji/Projects/static-route/cmake-build-debug
