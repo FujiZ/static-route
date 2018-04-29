@@ -13,4 +13,6 @@ struct arp_entry{
     struct ether_addr mac_addr;
 };
 
+struct arp_entry *arp_lookup(struct in_addr addr);
+
 #endif //STATIC_ROUTE_ARP_H
