@@ -3,4 +3,4 @@ project(static_route C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(router router.c arp.h router.h router.c arp.c)
+add_executable(router router.c router.c arp.c net.c)
