@@ -106,6 +106,7 @@ struct arp_entry *__arp_lookup(struct in_addr addr) {
     return entry;
 }
 
+// may be called in another thread
 struct arp_entry *arp_lookup(struct in_addr addr, int n) {
     struct arp_entry *entry = NULL;
     struct inet_entry *i_entry = NULL;

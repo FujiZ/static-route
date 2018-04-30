@@ -19,6 +19,6 @@ struct route_entry {
 
 struct route_entry *route_lookup(struct in_addr addr);
 
-int forward(void *buffer, size_t nbytes);
+int forward(int sockfd, void *buffer, size_t nbytes);
 
 #endif //STATIC_ROUTE_ROUTER_H

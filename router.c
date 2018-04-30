@@ -2,7 +2,6 @@
 // Created by fuji on 18-4-29.
 //
 
-
 #include <net/ethernet.h>
 #include <netinet/ip.h>
 #include <stdio.h>
@@ -15,15 +14,12 @@
 
 #include "router.h"
 #include "arp.h"
+#include "icmp.h"
 
 #define BUF_LEN 2048
 
+// read-only after init
 static struct route_entry *route_head = NULL;
-
-void usage(void) {
-    fprintf(stderr, "Usage: router interface route\n");
-    exit(EXIT_FAILURE);
-}
 
 struct route_entry *route_lookup(struct in_addr addr) {
     struct route_entry *entry;
@@ -33,9 +29,10 @@ struct route_entry *route_lookup(struct in_addr addr) {
     return entry;
 }
 
-int forward(void *buffer, size_t nbytes) {
+int forward(int sockfd, void *buffer, size_t nbytes) {
     struct iphdr *iph = buffer;
     struct in_addr dest_ip = {.s_addr = iph->daddr};
+
     // TODO we do not recalculate checksum now
     // lookup route table for route_entry
     struct route_entry *r_entry = route_lookup(dest_ip);
@@ -51,13 +48,11 @@ int forward(void *buffer, size_t nbytes) {
         a_entry = arp_lookup(dest_ip, 5);
 
     if (a_entry == NULL) {
-        fprintf(stderr, "forward: no arp for %s\n", inet_ntoa(r_entry->gateway));
-        return -1;
-    }
-    // create a socket to send packet
-    int sockfd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
-    if (sockfd < 0) {
-        fprintf(stderr, "forward: socket: %s\n", strerror(errno));
+        fprintf(stderr, "forward: no arp for");
+        if (r_entry->gateway.s_addr != 0)
+            fprintf(stderr, "%s\n", inet_ntoa(r_entry->gateway));
+        else
+            fprintf(stderr, "%s\n", inet_ntoa(dest_ip));
         return -1;
     }
     // forward packet to specific interface
@@ -69,15 +64,29 @@ int forward(void *buffer, size_t nbytes) {
     };
     memcpy(&dest_addr.sll_addr, &a_entry->mac_addr, ETH_ALEN);
 
-    if (sendto(sockfd, buffer, nbytes, 0, (struct sockaddr *) &dest_addr, sizeof(dest_addr)) < 0)
+    if (sendto(sockfd, buffer, nbytes, 0, (struct sockaddr *) &dest_addr, sizeof(dest_addr)) < 0) {
         fprintf(stderr, "forward: sendto: %s\n", strerror(errno));
-    // fall to close socket
-
-    if (close(sockfd) < 0) {
-        fprintf(stderr, "forward: close: %s\n", strerror(errno));
         return -1;
     }
     return 0;
+}
+
+int receive(int sockfd, void *buffer, size_t nbytes) {
+    // only process icmp packet for now
+    struct iphdr *iph = buffer;
+    unsigned int ip_tot_len = ntohs(iph->tot_len);
+
+    if (nbytes < ntohs(iph->tot_len))
+        return -1;
+    // TODO we can calculate ip checksum here
+
+    switch (iph->protocol) {
+        case IPPROTO_ICMP:
+            process_icmp(sockfd, buffer, nbytes);
+            break;
+        default:
+            break;
+    }
 }
 
 /**
@@ -96,9 +105,13 @@ void routed(void) {
     while ((nbytes = recv(sockfd, buffer, BUF_LEN, 0)) > 0) {
         if (nbytes < sizeof(struct iphdr))
             continue;
-        // TODO check if we should do local_deliver
-        // else: we should route this packet
-        forward(buffer, (size_t) nbytes);
+        // check if we should receive this packet
+        struct iphdr *iph = (struct iphdr *) buffer;
+        struct in_addr saddr = {.s_addr = iph->saddr};
+        if (inet_lookup(saddr) == NULL)
+            forward(sockfd, buffer, (size_t) nbytes);
+        else
+            receive(sockfd, buffer, (size_t) nbytes);
     }
     if (close(sockfd) < 0)
         fprintf(stderr, "routed: close: %s\n", strerror(errno));

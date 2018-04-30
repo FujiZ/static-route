@@ -28,4 +28,6 @@ struct inet_entry *inet_match(struct in_addr addr);
 
 struct inet_entry *inet_lookup(struct in_addr addr);
 
+unsigned short inet_cksum(const unsigned short *addr, int len, unsigned short csum);
+
 #endif //STATIC_ROUTE_NET_H
