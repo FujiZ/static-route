@@ -2,7 +2,6 @@
 // Created by fuji on 18-4-29.
 //
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,22 +15,16 @@
 #include "arp.h"
 #include "net.h"
 
-#define BUF_LEN 1024
+#define BUF_LEN 128
 
 static pthread_mutex_t arp_lock = PTHREAD_MUTEX_INITIALIZER;
+
 static pthread_cond_t arp_cond = PTHREAD_COND_INITIALIZER;
+
 static struct arp_entry *arp_head = NULL;
 
-int send_arp_request(struct in_addr addr) {
-    unsigned char buffer[BUF_LEN];
+int send_arp_request(struct in_addr addr, struct inet_entry *i_entry) {
     static struct ether_addr broad_addr = {.ether_addr_octet={0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
-
-    // get the right src ip we want to fill in arp packet
-    struct inet_entry *i_entry = inet_lookup(addr);
-    if (i_entry == NULL) {
-        fprintf(stderr, "send_arp_request: no ip for %s\n", inet_ntoa(addr));
-        return -1;
-    }
 
     // create a socket to send packet
     int sockfd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ARP));
@@ -40,16 +33,19 @@ int send_arp_request(struct in_addr addr) {
         return -1;
     }
     // build arp request
-    struct arp_header *arph = (struct arp_header *) buffer;
-    arph->ar_hdr.ar_hrd = htons(ARPHRD_ETHER);
-    arph->ar_hdr.ar_pro = htons(ETH_P_IP);
-    arph->ar_hdr.ar_hln = ETH_ALEN;
-    arph->ar_hdr.ar_pln = 4;
-    arph->ar_hdr.ar_op = htons(ARPOP_REQUEST);
-    arph->ar_sip = i_entry->addr;
-    arph->ar_sha = i_entry->interface->addr;
-    arph->ar_tip = addr;
-    arph->ar_tha = broad_addr;
+    struct arp_packet arpp = {
+            .ar_hdr={
+                    .ar_hrd=htons(ARPHRD_ETHER),
+                    .ar_pro = htons(ETH_P_IP),
+                    .ar_hln = ETH_ALEN,
+                    .ar_pln = 4,
+                    .ar_op = htons(ARPOP_REQUEST),
+            },
+            .ar_sip = i_entry->addr,
+            .ar_sha = i_entry->interface->addr,
+            .ar_tip = addr,
+            .ar_tha = broad_addr,
+    };
 
     // send arp request
     struct sockaddr_ll dest_addr = {
@@ -60,17 +56,59 @@ int send_arp_request(struct in_addr addr) {
     };
     memcpy(&dest_addr.sll_addr, &broad_addr, ETH_ALEN);
 
-    if (sendto(sockfd, buffer, sizeof(*arph), 0, (struct sockaddr *) &dest_addr, sizeof(dest_addr)) < 0)
+    if (sendto(sockfd, &arpp, sizeof(arpp), 0, (struct sockaddr *) &dest_addr, sizeof(dest_addr)) < 0)
         fprintf(stderr, "send_arp_request: sendto: %s\n", strerror(errno));
     // fall to close socket
     if (close(sockfd) < 0) {
         fprintf(stderr, "send_arp_request: close: %s\n", strerror(errno));
         return -1;
     }
+    return 0;
+}
+
+int send_arp_reply(int sockfd, struct arp_packet *request, struct inet_entry *i_entry) {
+    // build arp request
+    struct arp_packet arpp = {
+            .ar_hdr={
+                    .ar_hrd=htons(ARPHRD_ETHER),
+                    .ar_pro = htons(ETH_P_IP),
+                    .ar_hln = ETH_ALEN,
+                    .ar_pln = 4,
+                    .ar_op = htons(ARPOP_REPLY),
+            },
+            .ar_sip = i_entry->addr,
+            .ar_sha = i_entry->interface->addr,
+            .ar_tip = request->ar_sip,
+            .ar_tha = request->ar_sha,
+    };
+
+    // send arp request
+    struct sockaddr_ll dest_addr = {
+            .sll_family = AF_PACKET,
+            .sll_protocol = htons(ETH_P_ARP),
+            .sll_halen = ETH_ALEN,
+            .sll_ifindex = i_entry->interface->index,
+    };
+    memcpy(&dest_addr.sll_addr, &request->ar_sha, ETH_ALEN);
+
+    if (sendto(sockfd, &arpp, sizeof(arpp), 0, (struct sockaddr *) &dest_addr, sizeof(dest_addr)) < 0) {
+        fprintf(stderr, "send_arp_reply: sendto: %s\n", strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+struct arp_entry *__arp_lookup(struct in_addr addr) {
+    struct arp_entry *entry;
+    for (entry = arp_head; entry != NULL; entry = entry->next)
+        if (addr.s_addr == entry->ip_addr.s_addr)
+            break;
+    return entry;
 }
 
 struct arp_entry *arp_lookup(struct in_addr addr, int n) {
     struct arp_entry *entry = NULL;
+    struct inet_entry *i_entry = NULL;
 
     if (pthread_mutex_lock(&arp_lock) != 0) {
         fprintf(stderr, "arp_lookup: pthread_mutex_lock: %s\n", strerror(errno));
@@ -78,14 +116,16 @@ struct arp_entry *arp_lookup(struct in_addr addr, int n) {
     }
 
     for (int i = 0; i < n; ++i) {
-        for (entry = arp_head; entry != NULL; entry = entry->next)
-            if (addr.s_addr == entry->ip_addr.s_addr)
-                break;
-        if (entry != NULL)
+        if ((entry = __arp_lookup(addr)) != NULL)
             break;
 
+        if (i_entry == NULL && (i_entry = inet_match(addr)) == NULL) {
+            fprintf(stderr, "arp_lookup: no sip for %s\n", inet_ntoa(addr));
+            break;
+        }
+
         // broadcast arp request
-        send_arp_request(addr);
+        send_arp_request(addr, i_entry);
         // wait for newly added arp_entry
         struct timespec timeout = {.tv_sec=time(NULL) + 1};
         pthread_cond_timedwait(&arp_cond, &arp_lock, &timeout);
@@ -95,14 +135,51 @@ struct arp_entry *arp_lookup(struct in_addr addr, int n) {
     return entry;
 }
 
+// send reply if needed
+int process_arp_request(int sockfd, void *buffer, unsigned int len) {
+    // we already checked data in arphdr
+    if (len < sizeof(struct arp_packet))
+        return -1;
+    struct arp_packet *arpp = buffer;
+    struct inet_entry *i_entry = inet_lookup(arpp->ar_tip);
+    if (i_entry != NULL)
+        // build arp reply and send it back
+        return send_arp_reply(sockfd, arpp, i_entry);
+    return 0;
+}
 
-void process
+void process_arp_reply(void *buffer, unsigned int len) {
+    // we already checked data in arphdr
+    if (len < sizeof(struct arp_packet))
+        return;
 
+    struct arp_packet *arpp = buffer;
+
+    if (pthread_mutex_lock(&arp_lock) != 0) {
+        fprintf(stderr, "process_arp_reply: pthread_mutex_lock: %s\n", strerror(errno));
+        return;
+    }
+
+    // update ARP cache
+    struct arp_entry *entry = __arp_lookup(arpp->ar_sip);
+    if (entry == NULL) {
+        entry = malloc(sizeof(struct arp_entry));
+        entry->ip_addr = arpp->ar_sip;
+        entry->next = arp_head;
+        arp_head = entry;
+    }
+    entry->mac_addr = arpp->ar_sha;
+
+    pthread_mutex_unlock(&arp_lock);
+    // wakeup all sleeping thread
+    pthread_cond_broadcast(&arp_cond);
+}
+
+// update arp table && send arp reply
 void arpd(void) {
     unsigned char buffer[BUF_LEN];
 
-    // TODO update arp table && send arp reply
-    // create a socket to send packet
+    // create a socket to send && recv packet in arpd
     int sockfd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ARP));
     if (sockfd < 0) {
         fprintf(stderr, "arpd: socket: %s\n", strerror(errno));
@@ -114,22 +191,24 @@ void arpd(void) {
         if (nbytes < sizeof(struct arph))
             continue;
         struct arphdr *arph = (struct arphdr *) buffer;
-        // assert for eth type && ip type
+        // assertion for eth type && ip type
         if (ntohs(arph->ar_hrd) != ARPHRD_ETHER ||
             ntohs(arph->ar_pro) != ETH_P_IP ||
             arph->ar_hln != ETH_ALEN ||
             arph->ar_pln != 4)
             continue;
-        switch (ntohs(arph->ar_op)){
+
+        switch (ntohs(arph->ar_op)) {
             case ARPOP_REQUEST:
-                //
+                process_arp_request(sockfd, buffer, (unsigned int) nbytes);
                 break;
             case ARPOP_REPLY:
+                process_arp_reply(buffer, (unsigned int) nbytes);
                 break;
             default:
                 break;
         }
     }
     if (close(sockfd) < 0)
-        fprintf(stderr, "routed: close: %s\n", strerror(errno));
+        fprintf(stderr, "arpd: close: %s\n", strerror(errno));
 }

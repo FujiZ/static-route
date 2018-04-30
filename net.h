@@ -24,6 +24,8 @@ struct inet_entry {
     struct inet_entry *next;
 };
 
+struct inet_entry *inet_match(struct in_addr addr);
+
 struct inet_entry *inet_lookup(struct in_addr addr);
 
 #endif //STATIC_ROUTE_NET_H

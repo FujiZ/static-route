@@ -16,7 +16,7 @@ struct arp_entry {
     struct arp_entry *next;
 };
 
-struct arp_header {
+struct arp_packet {
     struct arphdr ar_hdr;
     struct ether_addr ar_sha;    /* sender hardware address	*/
     struct in_addr ar_sip;        /* sender IP address		*/
