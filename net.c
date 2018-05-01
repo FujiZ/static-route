@@ -4,6 +4,8 @@
 
 
 #include <stdlib.h>
+#include <string.h>
+#include <netinet/ip.h>
 
 #include "net.h"
 
@@ -56,3 +58,25 @@ inet_cksum(const unsigned short *addr, int len, unsigned short csum) {
     answer = (unsigned short) ~sum;        /* truncate to 16 bits */
     return (answer);
 }
+
+void build_iphdr(struct ip *iph, struct in_addr src, struct in_addr dst,
+                u_int8_t protocol, unsigned int data_len) {
+    static unsigned short count = 0;
+
+    // call memset to clear iph
+    memset(iph, 0, sizeof(struct ip));
+
+    // fill in ip header
+    iph->ip_v = IPVERSION;
+    iph->ip_hl = sizeof(struct ip) / 4;
+    iph->ip_len = htons(sizeof(struct ip) + data_len);
+    iph->ip_id = htons(++count);
+    iph->ip_ttl = IPDEFTTL;
+    iph->ip_p = protocol;
+    iph->ip_src = src;
+    iph->ip_dst = dst;
+
+    // calculate ip header checksum
+    iph->ip_sum = inet_cksum((unsigned short *) iph, sizeof(struct ip), 0);
+}
+

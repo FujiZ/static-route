@@ -30,4 +30,7 @@ struct inet_entry *inet_lookup(struct in_addr addr);
 
 unsigned short inet_cksum(const unsigned short *addr, int len, unsigned short csum);
 
+void build_iphdr(struct ip *iph, struct in_addr src, struct in_addr dst,
+                 u_int8_t protocol, unsigned int data_len);
+
 #endif //STATIC_ROUTE_NET_H

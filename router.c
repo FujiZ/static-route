@@ -30,14 +30,13 @@ struct route_entry *route_lookup(struct in_addr addr) {
 }
 
 int forward(int sockfd, void *buffer, size_t nbytes) {
-    struct iphdr *iph = buffer;
-    struct in_addr dest_ip = {.s_addr = iph->daddr};
+    struct ip *iph = buffer;
 
-    // TODO we do not recalculate checksum now
+    // TODO we can decrease ttl && recalculate checksum here
     // lookup route table for route_entry
-    struct route_entry *r_entry = route_lookup(dest_ip);
+    struct route_entry *r_entry = route_lookup(iph->ip_dst);
     if (r_entry == NULL) {
-        fprintf(stderr, "forward: no route for %s\n", inet_ntoa(dest_ip));
+        fprintf(stderr, "forward: no route for %s\n", inet_ntoa(iph->ip_dst));
         return -1;
     }
     // get arp_entry for gateway or daddr if we are in the same subnet with dest
@@ -45,16 +44,17 @@ int forward(int sockfd, void *buffer, size_t nbytes) {
     if (r_entry->gateway.s_addr != 0)
         a_entry = arp_lookup(r_entry->gateway, 5);
     else
-        a_entry = arp_lookup(dest_ip, 5);
+        a_entry = arp_lookup(iph->ip_dst, 5);
 
     if (a_entry == NULL) {
         fprintf(stderr, "forward: no arp for");
         if (r_entry->gateway.s_addr != 0)
             fprintf(stderr, "%s\n", inet_ntoa(r_entry->gateway));
         else
-            fprintf(stderr, "%s\n", inet_ntoa(dest_ip));
+            fprintf(stderr, "%s\n", inet_ntoa(iph->ip_dst));
         return -1;
     }
+
     // forward packet to specific interface
     struct sockaddr_ll dest_addr = {
             .sll_family = AF_PACKET,
@@ -73,16 +73,15 @@ int forward(int sockfd, void *buffer, size_t nbytes) {
 
 int receive(int sockfd, void *buffer, size_t nbytes) {
     // only process icmp packet for now
-    struct iphdr *iph = buffer;
-    unsigned int ip_tot_len = ntohs(iph->tot_len);
+    struct ip *iph = buffer;
 
-    if (nbytes < ntohs(iph->tot_len))
+    if (nbytes < ntohs(iph->ip_len))
         return -1;
     // TODO we can calculate ip checksum here
 
-    switch (iph->protocol) {
+    switch (iph->ip_p) {
         case IPPROTO_ICMP:
-            process_icmp(sockfd, buffer, nbytes);
+            handle_icmp(sockfd, buffer, nbytes);
             break;
         default:
             break;
@@ -103,12 +102,11 @@ void routed(void) {
 
     ssize_t nbytes;
     while ((nbytes = recv(sockfd, buffer, BUF_LEN, 0)) > 0) {
-        if (nbytes < sizeof(struct iphdr))
+        if (nbytes < sizeof(struct ip))
             continue;
         // check if we should receive this packet
-        struct iphdr *iph = (struct iphdr *) buffer;
-        struct in_addr saddr = {.s_addr = iph->saddr};
-        if (inet_lookup(saddr) == NULL)
+        struct ip *iph = (struct ip *) buffer;
+        if (inet_lookup(iph->ip_src) == NULL)
             forward(sockfd, buffer, (size_t) nbytes);
         else
             receive(sockfd, buffer, (size_t) nbytes);

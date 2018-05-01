@@ -7,6 +7,6 @@
 
 #include <stdlib.h>
 
-int process_icmp(int sockfd, void *buffer, size_t nbytes);
+int handle_icmp(int sockfd, void *buffer, size_t nbytes);
 
 #endif //STATIC_ROUTE_ICMP_H

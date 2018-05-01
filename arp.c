@@ -137,7 +137,7 @@ struct arp_entry *arp_lookup(struct in_addr addr, int n) {
 }
 
 // send reply if needed
-int process_arp_request(int sockfd, void *buffer, unsigned int len) {
+int handle_arp_request(int sockfd, void *buffer, size_t len) {
     // we already checked data in arphdr
     if (len < sizeof(struct arp_packet))
         return -1;
@@ -149,16 +149,16 @@ int process_arp_request(int sockfd, void *buffer, unsigned int len) {
     return 0;
 }
 
-void process_arp_reply(void *buffer, unsigned int len) {
+int handle_arp_reply(void *buffer, size_t len) {
     // we already checked data in arphdr
     if (len < sizeof(struct arp_packet))
-        return;
+        return -1;
 
     struct arp_packet *arpp = buffer;
 
     if (pthread_mutex_lock(&arp_lock) != 0) {
-        fprintf(stderr, "process_arp_reply: pthread_mutex_lock: %s\n", strerror(errno));
-        return;
+        fprintf(stderr, "handle_arp_reply: pthread_mutex_lock: %s\n", strerror(errno));
+        return -1;
     }
 
     // update ARP cache
@@ -174,6 +174,7 @@ void process_arp_reply(void *buffer, unsigned int len) {
     pthread_mutex_unlock(&arp_lock);
     // wakeup all sleeping thread
     pthread_cond_broadcast(&arp_cond);
+    return 0;
 }
 
 // update arp table && send arp reply
@@ -189,7 +190,7 @@ void arpd(void) {
 
     ssize_t nbytes;
     while ((nbytes = recv(sockfd, buffer, BUF_LEN, 0)) > 0) {
-        if (nbytes < sizeof(struct arph))
+        if (nbytes < sizeof(struct arphdr))
             continue;
         struct arphdr *arph = (struct arphdr *) buffer;
         // assertion for eth type && ip type
@@ -201,10 +202,10 @@ void arpd(void) {
 
         switch (ntohs(arph->ar_op)) {
             case ARPOP_REQUEST:
-                process_arp_request(sockfd, buffer, (unsigned int) nbytes);
+                handle_arp_request(sockfd, buffer, (size_t) nbytes);
                 break;
             case ARPOP_REPLY:
-                process_arp_reply(buffer, (unsigned int) nbytes);
+                handle_arp_reply(buffer, (size_t) nbytes);
                 break;
             default:
                 break;

@@ -5,36 +5,51 @@
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 
+#include "net.h"
 #include "icmp.h"
 #include "router.h"
 
-int reply_icmp_echo(int sockfd, void *buffer, size_t nbytes){
-    struct iphdr *iph = buffer;
-    unsigned int iph_len = iph->ihl * 4;
-    struct icmphdr *icmph = (struct icmphdr *) ((unsigned char *) iph + iph_len);
 
-    // TODO build ip header(we only build a basic ip header
-    // no matter what kind of header received)
-    // we can do this by shrinking buffer begin pos.
-    // so we should first save relative args in iph
+int handle_icmp_echo(int sockfd, void *buffer) {
+    struct ip *iph = buffer;
+    unsigned int ip_hl = iph->ip_hl * 4;
+    struct icmphdr *icmph = (struct icmphdr *) ((char *) iph + ip_hl);
 
-    // TODO calculate ip header checksum
-    // TODO build icmp header
-    // TODO calculate icmp checksum
+    // first, save args in iph: reverse src & dst
+    struct in_addr ip_src = iph->ip_dst;
+    struct in_addr ip_dst = iph->ip_src;
+    unsigned int data_len = ntohs(iph->ip_len) - ip_hl;
+
+    // shrink buffer begin pos
+    iph = buffer = (char *) iph + (ip_hl - sizeof(struct ip));
+
+    build_iphdr(iph, ip_src, ip_dst, IPPROTO_ICMP, data_len);
+    ip_hl = iph->ip_hl * 4;
+
+    // modify icmp header (not rebuild)
+    icmph->type = ICMP_ECHOREPLY;
+    icmph->code = 0;
+    icmph->checksum = 0;
+    // left id && sequence unchanged
+    // calculate icmp checksum
+    icmph->checksum = inet_cksum((unsigned short *) icmph, data_len, 0);
+
+    // send this packet out
+    return forward(sockfd, buffer, ip_hl + data_len);
 }
 
-int process_icmp(int sockfd, void *buffer, size_t nbytes) {
-    struct iphdr *iph = buffer;
-    unsigned int iph_len = iph->ihl * 4;
+int handle_icmp(int sockfd, void *buffer, size_t nbytes) {
+    struct ip *iph = buffer;
+    unsigned int ip_hl = iph->ip_hl * 4;
 
-    if(nbytes < iph_len + sizeof(struct icmphdr))
+    if (nbytes < ip_hl + sizeof(struct icmphdr))
         return -1;
-    struct icmphdr *icmph = (struct icmphdr *) ((unsigned char *) iph + iph_len);
-    // TODO we can calculate icmp checksum here
+    struct icmphdr *icmph = (struct icmphdr *) ((char *) iph + ip_hl);
+    // TODO we can check icmp checksum here
 
     switch (icmph->type) {
         case ICMP_ECHO:
-            reply_icmp_echo(sockfd, buffer, nbytes);
+            handle_icmp_echo(sockfd, buffer);
             break;
         default:
             break;
