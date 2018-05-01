@@ -5,11 +5,10 @@
 #ifndef STATIC_ROUTE_ARP_H
 #define STATIC_ROUTE_ARP_H
 
-#include <netinet/in.h>
 #include <net/ethernet.h>
-#include <netinet/if_ether.h>
-
 #include <net/if_arp.h>
+#include <netinet/if_ether.h>
+#include <netinet/in.h>
 
 struct arp_entry {
     struct in_addr ip_addr;

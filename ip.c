@@ -20,7 +20,7 @@
 // read-only after setup
 static struct ip_route_entry *ip_route_head = NULL;
 
-struct ip_route_entry *route_lookup(struct in_addr addr, struct in_addr netmask) {
+struct ip_route_entry *ip_route_lookup(struct in_addr addr, struct in_addr netmask) {
     struct ip_route_entry *entry;
     for (entry = ip_route_head; entry != NULL; entry = entry->next)
         if (addr.s_addr == entry->dest.s_addr &&
@@ -68,7 +68,7 @@ struct ip_route_entry *ip_route_add(char *dest_str, char *netmask_str, char *gat
 
     // make sure the dest is not a particular ip address
     dest.s_addr = dest.s_addr & netmask.s_addr;
-    if (route_lookup(dest, netmask) != NULL) {
+    if (ip_route_lookup(dest, netmask) != NULL) {
         fprintf(stderr, "ip_route_add: %s %s already exists\n", dest_str, netmask_str);
         return NULL;
     }

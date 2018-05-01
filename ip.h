@@ -18,6 +18,8 @@ struct ip_route_entry {
     struct ip_route_entry *next;
 };
 
+struct ip_route_entry *ip_route_match(struct in_addr addr);
+
 struct ip_route_entry *ip_route_add(char *dest_str, char *netmask_str, char *gateway_str);
 
 int ip_send(int sockfd, void *buffer, size_t nbytes);

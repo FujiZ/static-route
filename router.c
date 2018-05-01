@@ -4,17 +4,16 @@
 
 
 
-#include <netinet/in.h>
+#include <errno.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 #include <unistd.h>
-#include <pthread.h>
 
+#include "arp.h"
 #include "icmp.h"
 #include "inet.h"
 #include "ip.h"
-#include "arp.h"
 
 #define BUF_LEN 2048
 
@@ -77,10 +76,10 @@ int main(int argc, char *argv[]) {
     char netmask_str[16];
     char gateway_str[16];
 
-    if (argc < 2) {
+    if (argc < 3)
         usage();
-    }
-    // TODO init inet list
+
+    // init inet list
     if ((fp = fopen(argv[1], "r")) == NULL) {
         fprintf(stderr, "router: fopen: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
