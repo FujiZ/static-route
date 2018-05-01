@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
     if (argc < 5)
         usage();
 
-    // init inet list
+    // setup inet interface
     if ((fp = fopen(argv[1], "r")) == NULL) {
         fprintf(stderr, "host: fopen: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
@@ -93,8 +93,8 @@ int main(int argc, char *argv[]) {
     }
     fclose(fp);
 
-    // TODO init route table
-    if ((fp = fopen(argv[1], "r")) == NULL) {
+    // setup route table
+    if ((fp = fopen(argv[2], "r")) == NULL) {
         fprintf(stderr, "host: fopen: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
