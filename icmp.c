@@ -5,9 +5,9 @@
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 
-#include "net.h"
+#include "inet.h"
 #include "icmp.h"
-#include "router.h"
+#include "ip.h"
 
 
 int handle_icmp_echo(int sockfd, void *buffer) {
@@ -23,7 +23,7 @@ int handle_icmp_echo(int sockfd, void *buffer) {
     // shrink buffer begin pos
     iph = buffer = (char *) iph + (ip_hl - sizeof(struct ip));
 
-    build_iphdr(iph, ip_src, ip_dst, IPPROTO_ICMP, data_len);
+    ip_build_hdr(iph, ip_src, ip_dst, IPPROTO_ICMP, data_len);
     ip_hl = iph->ip_hl * 4;
 
     // modify icmp header (not rebuild)
@@ -35,7 +35,7 @@ int handle_icmp_echo(int sockfd, void *buffer) {
     icmph->checksum = inet_cksum((unsigned short *) icmph, data_len, 0);
 
     // send this packet out
-    return forward(sockfd, buffer, ip_hl + data_len);
+    return ip_forward(sockfd, buffer, ip_hl + data_len);
 }
 
 int handle_icmp(int sockfd, void *buffer, size_t nbytes) {

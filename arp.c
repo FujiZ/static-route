@@ -13,7 +13,7 @@
 #include <linux/if_packet.h>
 
 #include "arp.h"
-#include "net.h"
+#include "inet.h"
 
 #define BUF_LEN 128
 
