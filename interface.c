@@ -2,14 +2,15 @@
 // Created by fuji on 18-5-1.
 //
 
+#include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <netinet/in.h>
-#include <linux/if_ether.h>
-#include <stdio.h>
-#include <errno.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
+
+#include <netinet/in.h>
+#include <net/ethernet.h>
+#include <sys/ioctl.h>
 
 #include "interface.h"
 

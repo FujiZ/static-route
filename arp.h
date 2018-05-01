@@ -7,8 +7,9 @@
 
 #include <netinet/in.h>
 #include <net/ethernet.h>
+#include <netinet/if_ether.h>
 
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
 struct arp_entry {
     struct in_addr ip_addr;
@@ -25,5 +26,8 @@ struct arp_packet {
 };
 
 struct arp_entry *arp_lookup(struct in_addr addr, int n);
+
+// arp daemon
+void *arpd(void *arg);
 
 #endif //STATIC_ROUTE_ARP_H

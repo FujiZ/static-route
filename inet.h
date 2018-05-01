@@ -23,7 +23,7 @@ struct inet_entry *inet_match(struct in_addr addr);
 
 struct inet_entry *inet_lookup(struct in_addr addr);
 
-struct inet_entry *inet_add(char *addr_str, char *netmask_str, char *interface_str);
+struct inet_entry *inet_add(char *addr_str, char *netmask_str, char *if_str);
 
 unsigned short inet_cksum(const unsigned short *addr, int len, unsigned short csum);
 

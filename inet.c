@@ -3,15 +3,10 @@
 //
 
 
-#include <stdlib.h>
-#include <string.h>
-#include <netinet/ip.h>
-#include <net/if.h>
-#include <arpa/inet.h>
 #include <stdio.h>
-#include <errno.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
+#include <stdlib.h>
+
+#include <arpa/inet.h>
 
 #include "inet.h"
 
@@ -49,37 +44,35 @@ struct inet_entry *inet_alloc(struct in_addr addr, struct in_addr netmask,
     entry->next = inet_head;
     inet_head = entry;
 
-    return 0;
+    return entry;
 }
 
-struct inet_entry *inet_add(char *addr_str, char *netmask_str, char *interface_str) {
-    struct inet_entry *entry = NULL;
+struct inet_entry *inet_add(char *addr_str, char *netmask_str, char *if_str) {
     struct in_addr addr, netmask;
-    struct interface_entry *interface;
+    struct interface_entry *if_entry;
 
     if (inet_aton(addr_str, &addr) == 0) {
         fprintf(stderr, "inet_add: invalid ip %s\n", addr_str);
-        return entry;
+        return NULL;
     }
 
     // check if we already have this entry
-    if ((entry = inet_lookup(addr)) != NULL) {
+    if (inet_lookup(addr) != NULL) {
         fprintf(stderr, "inet_add: %s already exists\n", addr_str);
-        return entry;
+        return NULL;
     }
     if (inet_aton(netmask_str, &netmask) == 0) {
         fprintf(stderr, "inet_add: invalid netmask %s\n", netmask_str);
-        return entry;
+        return NULL;
     }
 
-    interface = interface_lookup(interface_str);
-    if (interface == NULL && (interface = interface_alloc(interface_str)) == NULL) {
-        fprintf(stderr, "inet_add: invalid interface %s\n", interface_str);
-        return entry;
+    if_entry = interface_lookup(if_str);
+    if (if_entry == NULL && (if_entry = interface_alloc(if_str)) == NULL) {
+        fprintf(stderr, "inet_add: invalid interface %s\n", if_str);
+        return NULL;
     }
 
-    entry = inet_alloc(addr, netmask, interface);
-    return entry;
+    return inet_alloc(addr, netmask, if_entry);
 }
 
 unsigned short

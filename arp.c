@@ -2,13 +2,15 @@
 // Created by fuji on 18-4-29.
 //
 
+#include <errno.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <pthread.h>
-#include <arpa/inet.h>
 #include <unistd.h>
+
+#include <arpa/inet.h>
+#include <net/ethernet.h>
 
 #include <linux/if_packet.h>
 
@@ -178,7 +180,7 @@ int handle_arp_reply(void *buffer, size_t len) {
 }
 
 // update arp table && send arp reply
-void arpd(void) {
+void *arpd(void *arg) {
     unsigned char buffer[BUF_LEN];
 
     // create a socket to send && recv packet in arpd
@@ -213,4 +215,6 @@ void arpd(void) {
     }
     if (close(sockfd) < 0)
         fprintf(stderr, "arpd: close: %s\n", strerror(errno));
+
+    return NULL;
 }
