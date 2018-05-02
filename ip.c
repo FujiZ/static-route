@@ -112,7 +112,7 @@ int ip_send(int sockfd, void *buffer, size_t nbytes) {
         ar_entry = arp_lookup(iph->ip_dst, 5);
 
     if (ar_entry == NULL) {
-        fprintf(stderr, "ip_send: no arp for");
+        fprintf(stderr, "ip_send: no arp for ");
         if (ir_entry->gateway.s_addr != 0)
             fprintf(stderr, "%s\n", inet_ntoa(ir_entry->gateway));
         else

@@ -22,7 +22,7 @@ struct arp_packet {
     struct in_addr ar_sip;        /* sender IP address		*/
     struct ether_addr ar_tha;    /* target hardware address	*/
     struct in_addr ar_tip;        /* target IP address		*/
-};
+}__attribute__ ((packed));
 
 struct arp_entry *arp_lookup(struct in_addr addr, int n);
 
