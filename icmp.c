@@ -2,6 +2,8 @@
 // Created by fuji on 18-4-30.
 //
 
+#include <stdio.h>
+
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 

@@ -37,8 +37,8 @@ struct ip_route_entry *ip_route_match(struct in_addr addr) {
     return entry;
 }
 
-struct ip_route_entry *route_alloc(struct in_addr dest, struct in_addr netmask,
-                                   struct in_addr gateway, struct interface_entry *interface) {
+struct ip_route_entry *ip_route_alloc(struct in_addr dest, struct in_addr netmask,
+                                      struct in_addr gateway, struct interface_entry *interface) {
     struct ip_route_entry *entry = NULL;
 
     entry = malloc(sizeof(struct ip_route_entry));
@@ -91,7 +91,7 @@ struct ip_route_entry *ip_route_add(char *dest_str, char *netmask_str, char *gat
         return NULL;
     }
 
-    return route_alloc(dest, netmask, gateway, in_entry->interface);
+    return ip_route_alloc(dest, netmask, gateway, in_entry->interface);
 }
 
 // assume the len and checksum of this packet is right

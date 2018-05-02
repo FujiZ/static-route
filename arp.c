@@ -191,7 +191,17 @@ void *arpd(void *arg) {
     }
 
     ssize_t nbytes;
-    while ((nbytes = recv(sockfd, buffer, BUF_LEN, 0)) > 0) {
+    struct sockaddr_ll addr;
+    socklen_t addr_len = sizeof(addr);
+    while ((nbytes = recvfrom(sockfd, buffer, BUF_LEN, 0,
+                              (struct sockaddr *) &addr, &addr_len)) > 0) {
+        // we should only care about incoming uni&broad-cast packet
+        if (addr.sll_hatype != ARPHRD_ETHER ||
+            addr.sll_pkttype == PACKET_LOOPBACK ||
+            (addr.sll_pkttype != PACKET_HOST &&
+             addr.sll_pkttype != PACKET_BROADCAST))
+            continue;
+
         if (nbytes < sizeof(struct arphdr))
             continue;
         struct arphdr *arph = (struct arphdr *) buffer;

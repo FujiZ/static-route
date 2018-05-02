@@ -10,6 +10,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <linux/if_packet.h>
+
 #include "arp.h"
 #include "icmp.h"
 #include "inet.h"
@@ -18,7 +20,7 @@
 #define BUF_LEN 2048
 
 void usage(void) {
-    fprintf(stderr, "Usage: router inet route\n");
+    fprintf(stderr, "Usage: router interface route\n");
     exit(EXIT_FAILURE);
 }
 
@@ -51,12 +53,23 @@ void *routed(void *arg) {
     }
 
     ssize_t nbytes;
-    while ((nbytes = recv(sockfd, buffer, BUF_LEN, 0)) > 0) {
+    struct sockaddr_ll addr;
+    socklen_t addr_len = sizeof(addr);
+
+    while ((nbytes = recvfrom(sockfd, buffer, BUF_LEN, 0,
+                              (struct sockaddr *) &addr, &addr_len)) > 0) {
+        // we should only care about incoming uni&broad-cast packet
+        if (addr.sll_hatype != ARPHRD_ETHER ||
+            addr.sll_pkttype == PACKET_LOOPBACK ||
+            (addr.sll_pkttype != PACKET_HOST &&
+             addr.sll_pkttype != PACKET_BROADCAST))
+            continue;
+
         if (nbytes < sizeof(struct ip))
             continue;
         // check if we should receive this packet
         struct ip *iph = (struct ip *) buffer;
-        if (inet_lookup(iph->ip_src) == NULL)
+        if (inet_lookup(iph->ip_dst) == NULL)
             ip_forward(sockfd, buffer, (size_t) nbytes);
         else
             receive(sockfd, buffer, (size_t) nbytes);

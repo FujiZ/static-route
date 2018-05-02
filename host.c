@@ -10,7 +10,6 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
-#include <sys/time.h>
 #include <unistd.h>
 
 #include "arp.h"
@@ -21,7 +20,7 @@
 #define BUF_LEN 256
 
 void usage(void) {
-    fprintf(stderr, "Usage: host inet route src dest\n");
+    fprintf(stderr, "Usage: host interface route src dest\n");
     exit(EXIT_FAILURE);
 }
 
@@ -47,10 +46,9 @@ int send_icmp_echo(char *src_str, char *dest_str) {
     icmph->checksum = 0;
     icmph->un.echo.sequence = htons(1);
     icmph->un.echo.id = htons((uint16_t) getpid());   /* ID */
-    gettimeofday((struct timeval *) &icmph[1], NULL);
 
     /* compute ICMP checksum here */
-    icmph->checksum = inet_cksum((unsigned short *) icmph, BUF_LEN-sizeof(struct ip), 0);
+    icmph->checksum = inet_cksum((unsigned short *) icmph, BUF_LEN - sizeof(struct ip), 0);
 
     int sockfd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
     if (sockfd < 0) {
@@ -118,5 +116,6 @@ int main(int argc, char *argv[]) {
 
     send_icmp_echo(argv[3], argv[4]);
 
+    pthread_join(arpd_tid, NULL);
     exit(EXIT_SUCCESS);
 }
