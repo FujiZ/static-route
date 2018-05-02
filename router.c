@@ -17,7 +17,6 @@
 #include "inet.h"
 #include "ip.h"
 
-#define BUF_LEN 2048
 
 void usage(void) {
     fprintf(stderr, "Usage: router interface route\n");
@@ -40,44 +39,6 @@ int receive(int sockfd, void *buffer, size_t nbytes) {
             break;
     }
     return 0;
-}
-
-// route daemon
-void *routed(void *arg) {
-    unsigned char buffer[BUF_LEN];
-
-    int sockfd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
-    if (sockfd < 0) {
-        fprintf(stderr, "routed: socket: %s\n", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-
-    ssize_t nbytes;
-    struct sockaddr_ll addr;
-    socklen_t addr_len = sizeof(addr);
-
-    while ((nbytes = recvfrom(sockfd, buffer, BUF_LEN, 0,
-                              (struct sockaddr *) &addr, &addr_len)) > 0) {
-        // we should only care about incoming uni&broad-cast packet
-        if (addr.sll_hatype != ARPHRD_ETHER ||
-            addr.sll_pkttype == PACKET_LOOPBACK ||
-            (addr.sll_pkttype != PACKET_HOST &&
-             addr.sll_pkttype != PACKET_BROADCAST))
-            continue;
-
-        if (nbytes < sizeof(struct ip))
-            continue;
-        // check if we should receive this packet
-        struct ip *iph = (struct ip *) buffer;
-        if (inet_lookup(iph->ip_dst) == NULL)
-            ip_forward(sockfd, buffer, (size_t) nbytes);
-        else
-            receive(sockfd, buffer, (size_t) nbytes);
-    }
-    if (close(sockfd) < 0)
-        fprintf(stderr, "routed: close: %s\n", strerror(errno));
-
-    return NULL;
 }
 
 int main(int argc, char *argv[]) {
@@ -135,8 +96,8 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
     // start router daemon
-    if (pthread_create(&routed_tid, NULL, routed, NULL) != 0) {
-        fprintf(stderr, "router: can't start routed\n");
+    if (pthread_create(&routed_tid, NULL, ip_routed, receive) != 0) {
+        fprintf(stderr, "router: can't start ip_routed\n");
         exit(EXIT_FAILURE);
     }
 

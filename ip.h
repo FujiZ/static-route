@@ -24,9 +24,11 @@ struct ip_route_entry *ip_route_add(char *dest_str, char *netmask_str, char *gat
 
 int ip_send(int sockfd, void *buffer, size_t nbytes);
 
-int ip_forward(int sockfd, void *buffer, size_t nbytes);
-
 void ip_build_header(struct ip *iph, struct in_addr src, struct in_addr dst,
                      u_int8_t protocol, unsigned int data_len);
+
+void *ip_routed(void *func);
+
+typedef int (*ip_recv_callback)(int sockfd, void *buffer, size_t nbytes);
 
 #endif //STATIC_ROUTE_IP_H

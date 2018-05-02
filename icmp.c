@@ -11,7 +11,7 @@
 #include "inet.h"
 #include "ip.h"
 
-int handle_icmp_echo(int sockfd, void *buffer) {
+static int handle_icmp_echo(int sockfd, void *buffer) {
     struct ip *iph = buffer;
     unsigned int ip_hl = iph->ip_hl * 4;
     struct icmphdr *icmph = (struct icmphdr *) ((char *) iph + ip_hl);
@@ -52,6 +52,7 @@ int handle_icmp(int sockfd, void *buffer, size_t nbytes) {
         case ICMP_ECHO:
             handle_icmp_echo(sockfd, buffer);
             break;
+        case ICMP_ECHOREPLY:
         default:
             break;
     }

@@ -31,8 +31,8 @@ struct inet_entry *inet_lookup(struct in_addr addr) {
     return entry;
 }
 
-struct inet_entry *inet_alloc(struct in_addr addr, struct in_addr netmask,
-                              struct interface_entry *interface) {
+static struct inet_entry *inet_alloc(struct in_addr addr, struct in_addr netmask,
+                                     struct interface_entry *interface) {
     struct inet_entry *entry = NULL;
 
     entry = malloc(sizeof(struct inet_entry));

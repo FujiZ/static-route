@@ -17,10 +17,12 @@
 #include "arp.h"
 #include "ip.h"
 
+#define BUF_LEN 2048
+
 // read-only after setup
 static struct ip_route_entry *ip_route_head = NULL;
 
-struct ip_route_entry *ip_route_lookup(struct in_addr addr, struct in_addr netmask) {
+static struct ip_route_entry *ip_route_lookup(struct in_addr addr, struct in_addr netmask) {
     struct ip_route_entry *entry;
     for (entry = ip_route_head; entry != NULL; entry = entry->next)
         if (addr.s_addr == entry->dest.s_addr &&
@@ -37,9 +39,9 @@ struct ip_route_entry *ip_route_match(struct in_addr addr) {
     return entry;
 }
 
-struct ip_route_entry *ip_route_alloc(struct in_addr dest, struct in_addr netmask,
-                                      struct in_addr gateway, struct interface_entry *interface) {
-    struct ip_route_entry *entry = NULL;
+static struct ip_route_entry *ip_route_alloc(struct in_addr dest, struct in_addr netmask,
+                                             struct in_addr gateway, struct interface_entry *interface) {
+    struct ip_route_entry *entry;
 
     entry = malloc(sizeof(struct ip_route_entry));
     entry->dest = dest;
@@ -137,7 +139,7 @@ int ip_send(int sockfd, void *buffer, size_t nbytes) {
 }
 
 // assume the len and checksum of this packet is right
-int ip_forward(int sockfd, void *buffer, size_t nbytes) {
+static int ip_forward(int sockfd, void *buffer, size_t nbytes) {
     // TODO we can decrease ttl && recalculate checksum here
     return ip_send(sockfd, buffer, nbytes);
 }
@@ -161,5 +163,45 @@ void ip_build_header(struct ip *iph, struct in_addr src, struct in_addr dst,
 
     // calculate ip header checksum
     iph->ip_sum = inet_cksum((unsigned short *) iph, sizeof(struct ip), 0);
+}
+
+// route daemon
+void *ip_routed(void *func) {
+    unsigned char buffer[BUF_LEN];
+
+    ip_recv_callback receive = func;
+
+    int sockfd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
+    if (sockfd < 0) {
+        fprintf(stderr, "ip_routed: socket: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    ssize_t nbytes;
+    struct sockaddr_ll addr;
+    socklen_t addr_len = sizeof(addr);
+
+    while ((nbytes = recvfrom(sockfd, buffer, BUF_LEN, 0,
+                              (struct sockaddr *) &addr, &addr_len)) > 0) {
+        // we should only care about incoming uni&broad-cast packet
+        if (addr.sll_hatype != ARPHRD_ETHER ||
+            addr.sll_pkttype == PACKET_LOOPBACK ||
+            (addr.sll_pkttype != PACKET_HOST &&
+             addr.sll_pkttype != PACKET_BROADCAST))
+            continue;
+
+        if (nbytes < sizeof(struct ip))
+            continue;
+        // check if we should receive this packet
+        struct ip *iph = (struct ip *) buffer;
+        if (inet_lookup(iph->ip_dst) == NULL)
+            ip_forward(sockfd, buffer, (size_t) nbytes);
+        else
+            receive(sockfd, buffer, (size_t) nbytes);
+    }
+    if (close(sockfd) < 0)
+        fprintf(stderr, "ip_routed: close: %s\n", strerror(errno));
+
+    return NULL;
 }
 

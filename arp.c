@@ -25,7 +25,7 @@ static pthread_cond_t arp_cond = PTHREAD_COND_INITIALIZER;
 
 static struct arp_entry *arp_head = NULL;
 
-int send_arp_request(struct in_addr addr, struct inet_entry *i_entry) {
+static int send_arp_request(struct in_addr addr, struct inet_entry *i_entry) {
     static struct ether_addr broad_addr = {.ether_addr_octet={0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
 
     // create a socket to send packet
@@ -68,7 +68,7 @@ int send_arp_request(struct in_addr addr, struct inet_entry *i_entry) {
     return 0;
 }
 
-int send_arp_reply(int sockfd, struct arp_packet *request, struct inet_entry *i_entry) {
+static int send_arp_reply(int sockfd, struct arp_packet *request, struct inet_entry *i_entry) {
     // build arp request
     struct arp_packet arpp = {
             .ar_hdr={
@@ -100,7 +100,7 @@ int send_arp_reply(int sockfd, struct arp_packet *request, struct inet_entry *i_
     return 0;
 }
 
-struct arp_entry *__arp_lookup(struct in_addr addr) {
+static struct arp_entry *__arp_lookup(struct in_addr addr) {
     struct arp_entry *entry;
     for (entry = arp_head; entry != NULL; entry = entry->next)
         if (addr.s_addr == entry->ip_addr.s_addr)
@@ -139,7 +139,7 @@ struct arp_entry *arp_lookup(struct in_addr addr, int n) {
 }
 
 // send reply if needed
-int handle_arp_request(int sockfd, void *buffer, size_t len) {
+static int handle_arp_request(int sockfd, void *buffer, size_t len) {
     // we already checked data in arphdr
     if (len < sizeof(struct arp_packet))
         return -1;
@@ -151,7 +151,7 @@ int handle_arp_request(int sockfd, void *buffer, size_t len) {
     return 0;
 }
 
-int handle_arp_reply(void *buffer, size_t len) {
+static int handle_arp_reply(void *buffer, size_t len) {
     // we already checked data in arphdr
     if (len < sizeof(struct arp_packet))
         return -1;

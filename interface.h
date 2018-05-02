@@ -15,7 +15,6 @@ struct interface_entry {
     struct interface_entry *next;
 };
 
-
 struct interface_entry *interface_lookup(char *name);
 
 struct interface_entry *interface_alloc(char *name);
