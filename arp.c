@@ -197,7 +197,6 @@ void *arpd(void *arg) {
                               (struct sockaddr *) &addr, &addr_len)) > 0) {
         // we should only care about incoming uni&broad-cast packet
         if (addr.sll_hatype != ARPHRD_ETHER ||
-            addr.sll_pkttype == PACKET_LOOPBACK ||
             (addr.sll_pkttype != PACKET_HOST &&
              addr.sll_pkttype != PACKET_BROADCAST))
             continue;
