@@ -55,7 +55,7 @@ struct interface_entry *interface_alloc(char *name) {
         return entry;
     }
 
-    entry = malloc(sizeof(struct interface_entry));
+    entry = malloc(sizeof(*entry));
     strncpy(entry->name, name, IFNAMSIZ - 1);
     memcpy(&entry->addr, req.ifr_hwaddr.sa_data, ETH_ALEN);
     entry->index = if_index;

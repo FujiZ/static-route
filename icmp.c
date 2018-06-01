@@ -6,6 +6,7 @@
 
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
+#include <arpa/inet.h>
 
 #include "icmp.h"
 #include "inet.h"
@@ -39,6 +40,18 @@ static int handle_icmp_echo(int sockfd, void *buffer) {
     return ip_send(sockfd, buffer, ip_hl + data_len);
 }
 
+static int handle_icmp_echo_reply(int sockfd, void *buffer) {
+    struct ip *iph = buffer;
+    unsigned int ip_hl = iph->ip_hl * 4;
+    struct icmphdr *icmph = (struct icmphdr *) ((char *) iph + ip_hl);
+
+    printf("%hu bytes from %s: icmp_id=%hu icmp_seq=%hu ttl=%d\n",
+           ntohs(iph->ip_len), inet_ntoa(iph->ip_src),
+           ntohs(icmph->un.echo.id),
+           ntohs(icmph->un.echo.sequence), iph->ip_ttl);
+    return 0;
+}
+
 int handle_icmp(int sockfd, void *buffer, size_t nbytes) {
     struct ip *iph = buffer;
     unsigned int ip_hl = iph->ip_hl * 4;
@@ -46,13 +59,20 @@ int handle_icmp(int sockfd, void *buffer, size_t nbytes) {
     if (nbytes < ip_hl + sizeof(struct icmphdr))
         return -1;
     struct icmphdr *icmph = (struct icmphdr *) ((char *) iph + ip_hl);
-    // TODO we can check icmp checksum here
+    // check icmp checksum
+    unsigned short sum = inet_cksum((unsigned short *) icmph, ntohs(iph->ip_len) - ip_hl, 0);
+    if (sum != 0) {
+        fprintf(stderr, "handle_icmp: bad packet\n");
+        return -1;
+    }
 
     switch (icmph->type) {
         case ICMP_ECHO:
             handle_icmp_echo(sockfd, buffer);
             break;
         case ICMP_ECHOREPLY:
+            handle_icmp_echo_reply(sockfd, buffer);
+            break;
         default:
             break;
     }
