@@ -18,7 +18,7 @@
 #include "ip.h"
 
 
-void usage(void) {
+static void usage(void) {
     fprintf(stderr, "Usage: router interface route\n");
     exit(EXIT_FAILURE);
 }
@@ -29,7 +29,6 @@ int receive(int sockfd, void *buffer, size_t nbytes) {
 
     if (nbytes < ntohs(iph->ip_len))
         return -1;
-    // TODO we can check ip checksum here
 
     switch (iph->ip_p) {
         case IPPROTO_ICMP:

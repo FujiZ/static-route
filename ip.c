@@ -138,6 +138,22 @@ int ip_send(int sockfd, void *buffer, size_t nbytes) {
     return 0;
 }
 
+// assume the len and checksum of this packet is right
+static int ip_forward(int sockfd, void *buffer, size_t nbytes) {
+    struct ip *iph = buffer;
+
+    // decrease ttl && recalculate checksum
+    if (--iph->ip_ttl == 0) {
+        fprintf(stderr, "ip_routed: ttl expired\n");
+        return -1;
+    }
+    iph->ip_sum = 0;
+    iph->ip_sum = inet_cksum((unsigned short *) iph, sizeof(*iph), 0);
+
+    return ip_send(sockfd, buffer, nbytes);
+
+}
+
 void ip_build_header(struct ip *iph, struct in_addr src, struct in_addr dst,
                      u_int8_t protocol, unsigned int data_len) {
     static unsigned short count = 0;
@@ -193,16 +209,9 @@ void *ip_routed(void *func) {
             fprintf(stderr, "ip_routed: bad packet\n");
             continue;
         }
-        // decrease ttl && recalculate checksum
-        if (--iph->ip_ttl == 0) {
-            fprintf(stderr, "ip_routed: ttl expired\n");
-            continue;
-        }
-        iph->ip_sum = 0;
-        iph->ip_sum = inet_cksum((unsigned short *) iph, sizeof(*iph), 0);
 
         if (inet_lookup(iph->ip_dst) == NULL)
-            ip_send(sockfd, buffer, (size_t) nbytes);
+            ip_forward(sockfd, buffer, (size_t) nbytes);
         else
             receive(sockfd, buffer, (size_t) nbytes);
     }

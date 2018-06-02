@@ -19,12 +19,12 @@
 
 #define BUF_LEN 256
 
-void usage(void) {
+static void usage(void) {
     fprintf(stderr, "Usage: host interface route dest\n");
     exit(EXIT_FAILURE);
 }
 
-int send_icmp_echo(int sockfd, struct in_addr dest) {
+static int send_icmp_echo(int sockfd, struct in_addr dest) {
     unsigned char buffer[BUF_LEN];
     struct ip *iph = (struct ip *) buffer;
     struct icmphdr *icmph = (struct icmphdr *) &iph[1];
@@ -60,6 +60,23 @@ int send_icmp_echo(int sockfd, struct in_addr dest) {
     icmph->checksum = inet_cksum((unsigned short *) icmph, BUF_LEN - sizeof(struct ip), 0);
 
     return ip_send(sockfd, buffer, BUF_LEN);
+}
+
+static int receive(int sockfd, void *buffer, size_t nbytes) {
+    // only process icmp packet for now
+    struct ip *iph = buffer;
+
+    if (nbytes < ntohs(iph->ip_len))
+        return -1;
+
+    switch (iph->ip_p) {
+        case IPPROTO_ICMP:
+            handle_icmp(sockfd, buffer, nbytes);
+            break;
+        default:
+            break;
+    }
+    return 0;
 }
 
 // build a simple icmp packet && send
@@ -118,7 +135,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
     // start router daemon
-    if (pthread_create(&routed_tid, NULL, ip_routed, handle_icmp) != 0) {
+    if (pthread_create(&routed_tid, NULL, ip_routed, receive) != 0) {
         fprintf(stderr, "host: can't start ip_routed\n");
         exit(EXIT_FAILURE);
     }
