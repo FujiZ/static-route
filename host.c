@@ -157,6 +157,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "host: close: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
+    pthread_join(arpd_tid, NULL);
     pthread_join(routed_tid, NULL);
 
     exit(EXIT_SUCCESS);

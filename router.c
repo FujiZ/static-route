@@ -8,9 +8,6 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-
-#include <linux/if_packet.h>
 
 #include "arp.h"
 #include "icmp.h"
